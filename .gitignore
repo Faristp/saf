@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ignore markdown except the invoice app README
+*.md
+!INVOICE_APP_README.md
+!README.md
