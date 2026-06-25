@@ -49,10 +49,10 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">
             SAF Invoice Manager
           </h1>
-          <p className="text-gray-600">Sign in to your account</p>
+          <p className="text-slate-700">Sign in to your account</p>
         </div>
 
         {error && (
@@ -63,7 +63,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="username" className="block text-sm font-medium text-slate-700 mb-2">
               Username
             </label>
             <input
@@ -72,14 +72,14 @@ export default function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               disabled={isLoading}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 text-slate-900"
               placeholder="Enter your username"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
               Password
             </label>
             <input
@@ -88,7 +88,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isLoading}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 text-slate-900"
               placeholder="Enter your password"
               required
             />
@@ -104,7 +104,7 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 pt-6 border-t">
-          <p className="text-center text-gray-600 text-sm">
+          <p className="text-center text-slate-700 text-sm">
             Need help? Check your API configuration in{" "}
             <code className="bg-gray-100 px-2 py-1 rounded">.env.local</code>
           </p>

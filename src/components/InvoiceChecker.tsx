@@ -263,7 +263,7 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
   const pendingExpected = pendingScan ? expectedByCode.get(pendingScan.code) : undefined;
 
   return (
-    <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
+    <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 overflow-x-hidden">
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-slate-900">Invoice Checker</h3>
         <p className="mt-2 text-sm text-slate-600">
@@ -304,23 +304,23 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
 
       {pendingScan ? (
         <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
               <div className="text-sm text-slate-700">Pending scan</div>
               <div className="mt-1 flex items-baseline gap-3">
-                <div className="font-mono text-lg font-semibold">{pendingScan.code}</div>
+                <div className="font-mono text-lg font-semibold text-slate-900 break-words">{pendingScan.code}</div>
                 <div className="text-sm text-slate-500">{pendingScan.time}</div>
               </div>
-                <div className="mt-2 text-sm text-slate-600">Adjust quantity and approve the scan.</div>
-                {!pendingExpected ? (
-                  <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                    Item not on invoice — cannot approve. Please verify the barcode.
-                  </div>
-                ) : (
-                  <div className="mt-3 text-sm text-slate-600">Detected: {pendingExpected.description}</div>
-                )}
+              <div className="mt-2 text-sm text-slate-600">Adjust quantity and approve the scan.</div>
+              {!pendingExpected ? (
+                <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  Item not on invoice — cannot approve. Please verify the barcode.
+                </div>
+              ) : (
+                <div className="mt-3 text-sm text-slate-700">Detected: {pendingExpected.description}</div>
+              )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="number"
                 min={1}
