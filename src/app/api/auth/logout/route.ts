@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
 
     // Clear all auth-related cookies
     // Adjust cookie names based on your backend

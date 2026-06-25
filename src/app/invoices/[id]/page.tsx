@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { InvoiceChecker } from "@/components/InvoiceChecker";
 import { InvoiceDetails } from "@/components/InvoiceDetails";
-import { InvoiceLineItem, InvoiceListItem } from "@/lib/api";
+import { InvoiceLineItem } from "@/lib/api";
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -13,7 +14,6 @@ export default function InvoiceDetailPage() {
   const txnId = searchParams.get("txnId") || "";
 
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
-  const [invoiceInfo, setInvoiceInfo] = useState<InvoiceListItem | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,12 +90,15 @@ export default function InvoiceDetailPage() {
         </Link>
 
         {lineItems.length > 0 ? (
-          <div className="bg-white rounded-lg shadow p-6">
-            <InvoiceDetails
-              lineItems={lineItems}
-              invoiceNumber={lineItems[0]?.TxnInstanceDetail || invoiceId}
-              currency={invoiceInfo?.Currencies_Code || "KWD"}
-            />
+          <div className="space-y-8">
+            <div className="bg-white rounded-lg shadow p-6">
+              <InvoiceDetails
+                lineItems={lineItems}
+                invoiceNumber={lineItems[0]?.TxnInstanceDetail || invoiceId}
+                currency="KWD"
+              />
+            </div>
+            <InvoiceChecker lineItems={lineItems} />
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow p-8 text-center">
