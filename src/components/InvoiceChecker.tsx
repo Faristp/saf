@@ -260,6 +260,8 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
     }
   };
 
+  const pendingExpected = pendingScan ? expectedByCode.get(pendingScan.code) : undefined;
+
   return (
     <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
       <div className="mb-6">
@@ -309,7 +311,14 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
                 <div className="font-mono text-lg font-semibold">{pendingScan.code}</div>
                 <div className="text-sm text-slate-500">{pendingScan.time}</div>
               </div>
-              <div className="mt-2 text-sm text-slate-600">Adjust quantity and approve the scan.</div>
+                <div className="mt-2 text-sm text-slate-600">Adjust quantity and approve the scan.</div>
+                {!pendingExpected ? (
+                  <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    Item not on invoice — cannot approve. Please verify the barcode.
+                  </div>
+                ) : (
+                  <div className="mt-3 text-sm text-slate-600">Detected: {pendingExpected.description}</div>
+                )}
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -321,17 +330,22 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
               />
               <button
                 type="button"
-                onClick={() => {
-                  if (!pendingScan) return;
-                  submitScan(pendingScan.code, pendingQty);
-                  setPendingScan(null);
-                  setPendingQty(1);
-                  // resume camera scanning
-                  startCameraScan();
-                }}
-                className="inline-flex h-10 items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
-              >
-                Approve
+                  onClick={() => {
+                    if (!pendingScan) return;
+                    if (!pendingExpected) {
+                      showNotification("Cannot approve: item not on invoice", "error");
+                      return;
+                    }
+                    submitScan(pendingScan.code, pendingQty);
+                    setPendingScan(null);
+                    setPendingQty(1);
+                    // resume camera scanning
+                    startCameraScan();
+                  }}
+                  className={`inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-semibold text-white ${pendingExpected ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-200 text-slate-500 cursor-not-allowed"}`}
+                  disabled={!pendingExpected}
+                >
+                  Approve
               </button>
               <button
                 type="button"
