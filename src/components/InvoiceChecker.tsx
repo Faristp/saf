@@ -64,9 +64,14 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
     message: string;
     type: "success" | "error";
   } | null>(null);
+  const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(true);
+  const [pendingScan, setPendingScan] = useState<{ code: string; time: string } | null>(null);
+  const [pendingQty, setPendingQty] = useState<number>(1);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scannerControlsRef = useRef<IScannerControls | null>(null);
   const lastScannedRef = useRef<string>("");
+  const [editingCode, setEditingCode] = useState<string | null>(null);
+  const [editingQty, setEditingQty] = useState<number>(0);
 
   const totalExpected = lineItems.reduce((sum, item) => sum + (item.Qty || 0), 0);
   const totalScanned = Object.values(scannedCounts).reduce((sum, qty) => sum + qty, 0);
@@ -89,15 +94,17 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
       return;
     }
 
-    if (normalizedValue === lastScannedRef.current) {
-      return;
-    }
+    if (pendingScan) return;
+    if (normalizedValue === lastScannedRef.current) return;
 
     lastScannedRef.current = normalizedValue;
-    submitScan(normalizedValue);
-    setTimeout(() => {
-      lastScannedRef.current = "";
-    }, 1200);
+    // pause scanning and present approval UI
+    try {
+      scannerControlsRef.current?.stop();
+    } catch (e) {}
+    setCameraActive(false);
+    setPendingScan({ code: normalizedValue, time: new Date().toLocaleTimeString() });
+    setPendingQty(1);
   };
 
   const startCameraScan = async () => {
@@ -170,10 +177,32 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
   const showNotification = (message: string, type: "success" | "error") => {
     setNotification({ message, type });
     try {
-      if (navigator.vibrate) navigator.vibrate(120);
+      if (hapticsEnabled && navigator.vibrate) navigator.vibrate([60, 20, 60]);
     } catch (e) {}
     if (type === "success") playBeep();
     setTimeout(() => setNotification(null), 1200);
+  };
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("hapticsEnabled");
+      if (saved !== null) setHapticsEnabled(saved === "true");
+    } catch (e) {}
+  }, []);
+
+  const toggleHaptics = (value?: boolean) => {
+    const next = typeof value === "boolean" ? value : !hapticsEnabled;
+    setHapticsEnabled(next);
+    try {
+      localStorage.setItem("hapticsEnabled", next ? "true" : "false");
+    } catch (e) {}
+  };
+
+  const testHaptic = () => {
+    try {
+      if (navigator.vibrate) navigator.vibrate([30, 20, 30]);
+    } catch (e) {}
+    playBeep();
   };
 
   useEffect(() => {
@@ -183,7 +212,7 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
     };
   }, []);
 
-  const submitScan = (value: string) => {
+  const submitScan = (value: string, qty: number = 1) => {
     const code = normalizeValue(value);
     if (!code) {
       setError("Please scan or type a valid item code.");
@@ -198,11 +227,14 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
     const currentScannedQty = scannedCounts[code] || 0;
 
     if (!expected) {
+      // record unknown item but mark as mismatch
+      const newQty = currentScannedQty + qty;
+      setScannedCounts((prev) => ({ ...prev, [code]: newQty }));
       const newEntry: ScannedEntry = {
         code,
         description: "Not on invoice",
         matched: false,
-        message: "Item is not part of this invoice.",
+        message: `Added ${qty} unit(s) for item not on invoice.`,
         time: new Date().toLocaleTimeString(),
       };
       setScanLog((prev) => [newEntry, ...prev].slice(0, 20));
@@ -210,31 +242,22 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
       return;
     }
 
-    if (currentScannedQty >= expected.expectedQty) {
-      const newEntry: ScannedEntry = {
-        code,
-        description: expected.description,
-        matched: false,
-        message: `All expected units for this code have already been scanned (expected ${expected.expectedQty}).`,
-        time: new Date().toLocaleTimeString(),
-      };
-      setScanLog((prev) => [newEntry, ...prev].slice(0, 20));
-      showNotification("All units already scanned", "error");
-      return;
-    }
-
-    const newQty = currentScannedQty + 1;
+    const newQty = currentScannedQty + qty;
     setScannedCounts((prev) => ({ ...prev, [code]: newQty }));
 
     const newEntry: ScannedEntry = {
       code,
       description: expected.description,
-      matched: true,
+      matched: newQty <= expected.expectedQty,
       message: `Scanned successfully. ${newQty} / ${expected.expectedQty} recorded for this item code.`,
       time: new Date().toLocaleTimeString(),
     };
     setScanLog((prev) => [newEntry, ...prev].slice(0, 20));
-    showNotification(`Scanned: ${code}`, "success");
+    if (newQty > expected.expectedQty) {
+      showNotification(`Added ${qty} (exceeds expected)`, "error");
+    } else {
+      showNotification(`Scanned: ${code} x${qty}`, "success");
+    }
   };
 
   return (
@@ -277,6 +300,56 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
         </button>
       </form>
 
+      {pendingScan ? (
+        <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm text-slate-700">Pending scan</div>
+              <div className="mt-1 flex items-baseline gap-3">
+                <div className="font-mono text-lg font-semibold">{pendingScan.code}</div>
+                <div className="text-sm text-slate-500">{pendingScan.time}</div>
+              </div>
+              <div className="mt-2 text-sm text-slate-600">Adjust quantity and approve the scan.</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                value={pendingQty}
+                onChange={(e) => setPendingQty(Math.max(1, Number(e.target.value || 1)))}
+                className="w-24 rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (!pendingScan) return;
+                  submitScan(pendingScan.code, pendingQty);
+                  setPendingScan(null);
+                  setPendingQty(1);
+                  // resume camera scanning
+                  startCameraScan();
+                }}
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingScan(null);
+                  setPendingQty(1);
+                  showNotification("Scan rejected", "error");
+                  startCameraScan();
+                }}
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {error ? (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -292,15 +365,35 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
                 Use your device camera to scan item barcodes for invoice verification.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={cameraActive ? stopCameraScan : startCameraScan}
-              className={`inline-flex h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold text-white transition ${
-                cameraActive ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"
-              }`}
-            >
-              {cameraActive ? "Stop camera" : "Start camera"}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={cameraActive ? stopCameraScan : startCameraScan}
+                className={`inline-flex h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold text-white transition ${
+                  cameraActive ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"
+                }`}
+              >
+                {cameraActive ? "Stop camera" : "Start camera"}
+              </button>
+
+              <button
+                type="button"
+                onClick={testHaptic}
+                className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Test haptic
+              </button>
+
+              <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={hapticsEnabled}
+                  onChange={() => toggleHaptics()}
+                  className="h-4 w-4 rounded"
+                />
+                Enable haptic
+              </label>
+            </div>
           </div>
 
           {cameraError ? (
@@ -355,6 +448,7 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
               <th className="px-4 py-3 text-right font-semibold">Expected</th>
               <th className="px-4 py-3 text-right font-semibold">Scanned</th>
               <th className="px-4 py-3 text-left font-semibold">Status</th>
+              <th className="px-4 py-3 text-right font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
@@ -379,6 +473,38 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
                     >
                       {status}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {editingCode === code ? (
+                      <div className="flex items-center justify-end gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={editingQty}
+                          onChange={(e) => setEditingQty(Math.max(0, Number(e.target.value || 0)))}
+                          className="w-24 rounded-lg border border-slate-300 bg-white px-2 py-1 text-slate-900"
+                        />
+                        <button
+                          className="rounded bg-emerald-600 px-3 py-1 text-white"
+                          onClick={() => {
+                            setScannedCounts((prev) => ({ ...prev, [code]: editingQty }));
+                            setEditingCode(null);
+                            showNotification("Quantity updated", "success");
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button className="rounded border px-2 py-1" onClick={() => setEditingCode(null)}>
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-end gap-2">
+                        <button className="rounded border px-2 py-1 text-sm" onClick={() => { setEditingCode(code); setEditingQty(scannedQty); }}>
+                          Edit
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               );
