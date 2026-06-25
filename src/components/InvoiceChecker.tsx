@@ -60,6 +60,10 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
   const [error, setError] = useState<string | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scannerControlsRef = useRef<IScannerControls | null>(null);
   const lastScannedRef = useRef<string>("");
@@ -139,6 +143,39 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
     setCameraActive(false);
   };
 
+  const playBeep = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.value = 880;
+      g.gain.value = 0.04;
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.12);
+      setTimeout(() => {
+        try {
+          ctx.close && ctx.close();
+        } catch (e) {}
+      }, 200);
+    } catch (e) {
+      // ignore audio errors
+    }
+  };
+
+  const showNotification = (message: string, type: "success" | "error") => {
+    setNotification({ message, type });
+    try {
+      if (navigator.vibrate) navigator.vibrate(120);
+    } catch (e) {}
+    if (type === "success") playBeep();
+    setTimeout(() => setNotification(null), 1200);
+  };
+
   useEffect(() => {
     return () => {
       scannerControlsRef.current?.stop();
@@ -150,6 +187,7 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
     const code = normalizeValue(value);
     if (!code) {
       setError("Please scan or type a valid item code.");
+      showNotification("Invalid code", "error");
       return;
     }
 
@@ -168,6 +206,7 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
         time: new Date().toLocaleTimeString(),
       };
       setScanLog((prev) => [newEntry, ...prev].slice(0, 20));
+      showNotification("Item not on invoice", "error");
       return;
     }
 
@@ -180,6 +219,7 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
         time: new Date().toLocaleTimeString(),
       };
       setScanLog((prev) => [newEntry, ...prev].slice(0, 20));
+      showNotification("All units already scanned", "error");
       return;
     }
 
@@ -194,6 +234,7 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
       time: new Date().toLocaleTimeString(),
     };
     setScanLog((prev) => [newEntry, ...prev].slice(0, 20));
+    showNotification(`Scanned: ${code}`, "success");
   };
 
   return (
@@ -205,6 +246,16 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
           show if scanned items match the invoice and highlight duplicates or extra items.
         </p>
       </div>
+
+      {notification ? (
+        <div
+          className={`fixed left-1/2 top-6 z-50 -translate-x-1/2 rounded-lg px-4 py-2 text-sm font-semibold shadow-lg transition-colors ${
+            notification.type === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
+          }`}
+        >
+          {notification.message}
+        </div>
+      ) : null}
 
       <form onSubmit={handleScan} className="grid gap-4 sm:grid-cols-[1fr_auto] items-end">
         <label className="block w-full">
