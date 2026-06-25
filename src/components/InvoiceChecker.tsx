@@ -106,7 +106,8 @@ export function InvoiceChecker({ lineItems }: InvoiceCheckerProps) {
 
     try {
       const devices = await BrowserMultiFormatReader.listVideoInputDevices();
-      const deviceId = devices[0]?.deviceId;
+      const preferredDevice = devices.find((device) => /back|rear|environment/i.test(device.label));
+      const deviceId = preferredDevice?.deviceId || devices[0]?.deviceId;
 
       if (!deviceId) {
         setCameraError("No camera device found.");
